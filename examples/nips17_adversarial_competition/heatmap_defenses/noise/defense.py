@@ -59,6 +59,9 @@ tf.flags.DEFINE_integer(
 tf.flags.DEFINE_integer(
     'batch_size', DEFAULT_BATCH_SIZE, 'How many images process at one time.')
 
+tf.flags.DEFINE_boolean(
+    'using_docker', False, 'Using a self-contained docker container.')
+
 tf.flags.DEFINE_integer(
     'gpu', None, 'What GPU device to use.')
 
@@ -138,7 +141,8 @@ def prepare_graph(noise_std = DEFAULT_NOISE_STD, batch_shape = [DEFAULT_BATCH_SI
 
             # Allocate memory based on need
             config = tf.ConfigProto()
-            config.gpu_options.allow_growth = True
+            if not FLAGS.using_docker:
+                config.gpu_options.allow_growth = True
 
             # Restore the checkpoint
             sess = tf.Session(config=config, graph=graph)
@@ -197,17 +201,18 @@ def main(_):
 
     tf.logging.set_verbosity(tf.logging.INFO)
 
-    gpu = FLAGS.gpu
+    if not FLAGS.using_docker:
+        gpu = FLAGS.gpu
 
-    cuda = True if gpu is not None else False
-    use_mult_gpu = isinstance(gpu, list)
-    if cuda:
-        if use_mult_gpu:
-            os.environ['CUDA_VISIBLE_DEVICES'] = str(gpu).strip('[').strip(']')
+        cuda = True if gpu is not None else False
+        use_mult_gpu = isinstance(gpu, list)
+        if cuda:
+            if use_mult_gpu:
+                os.environ['CUDA_VISIBLE_DEVICES'] = str(gpu).strip('[').strip(']')
+            else:
+                os.environ['CUDA_VISIBLE_DEVICES'] = '%d' % gpu
         else:
-            os.environ['CUDA_VISIBLE_DEVICES'] = '%d' % gpu
-    else:
-        os.environ['CUDA_VISIBLE_DEVICES'] = ''
+            os.environ['CUDA_VISIBLE_DEVICES'] = ''
 
     (graph, sess, tensors_dict, ops_dict) = prepare_graph(
         noise_std = FLAGS.noise_std,
