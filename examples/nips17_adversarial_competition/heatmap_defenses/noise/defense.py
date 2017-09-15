@@ -8,9 +8,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import os
-
-import time
+import os, time
 
 import numpy as np
 from scipy.misc import imread
@@ -18,16 +16,11 @@ from scipy.misc import imread
 import tensorflow as tf
 from tensorflow.contrib.slim.nets import inception, vgg
 
-from scipy.ndimage.filters import gaussian_filter
-from scipy.misc import imresize
-
-from PIL import ImageFilter, Image
-
 slim = tf.contrib.slim
 
 DEFAULT_IMAGE_HEIGHT = 299
 DEFAULT_IMAGE_WIDTH = 299
-DEFAULT_BATCH_SIZE = 128
+DEFAULT_BATCH_SIZE = 100
 #DEFAULT_EPOCHS = 300
 #DEFAULT_LEARNING_RATE = 0.1
 

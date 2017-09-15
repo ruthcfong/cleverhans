@@ -17,6 +17,6 @@ python defense.py \
   --input_dir="${INPUT_DIR}" \
   --output_file="${OUTPUT_FILE}" \
   --checkpoint_path=inception_v3.ckpt \
-  --using_docker \
-  --noise_std="${NOISE_STD}"
+  --noise_std="${NOISE_STD}" \
+  --using_docker
 
