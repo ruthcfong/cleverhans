@@ -5,6 +5,8 @@ import numpy as np
 def main(argv):
     results_f = argv[0]
     dataset_csv = '/users/ruthfong/tensorflow/cleverhans/examples/nips17_adversarial_competition/dataset/dev_dataset.csv'
+    if not os.path.exists(dataset_csv):
+        dataset_csv = '/home/ruthfong/tensorflow/cleverhans/examples/nips17_adversarial_competition/dataset/dev_dataset.csv'
 
     image_ids = np.loadtxt(dataset_csv, delimiter=',', usecols=0, skiprows=1, dtype='S20') 
     gt_labels = np.loadtxt(dataset_csv, delimiter=',', usecols=6, skiprows=1, dtype='int32')

@@ -9,12 +9,13 @@ from __future__ import print_function
 import os, time
 
 import numpy as np
-from scipy.misc import imread
+from scipy.misc import imread, imresize
 
 from pyunlocbox import functions, solvers # TODO: NEED TO BE ADDED TO DOCKER
 
 import tensorflow as tf
 from tensorflow.contrib.slim.nets import inception #, vgg 
+import inception_resnet_v2
 
 slim = tf.contrib.slim
 
@@ -25,6 +26,9 @@ DEFAULT_BATCH_SHAPE = [DEFAULT_BATCH_SIZE, DEFAULT_IMAGE_HEIGHT,
         DEFAULT_IMAGE_WIDTH, 3]
 
 DEFAULT_CHECKPOINT_PATH = './inception_v3.ckpt'
+
+tf.flags.DEFINE_string(
+    'master', '', 'The address of the TensorFlow master to use.')
 
 tf.flags.DEFINE_string(
     'checkpoint_path', DEFAULT_CHECKPOINT_PATH, 'Path to checkpoint for inception network.')
@@ -50,6 +54,12 @@ tf.flags.DEFINE_boolean(
 tf.flags.DEFINE_integer(
     'gpu', None, 'What GPU device to use.')
 
+tf.flags.DEFINE_string(
+    'net_type', 'googlenet', 'Choose from ["googlenet", "resnet"]')
+
+tf.flags.DEFINE_float(
+    'downsample', 0.5, 'Choose downsampling factor')
+
 #tf.flags.DEFINE_float(
 #    'noise_std', DEFAULT_NOISE_STD, 'Additive Gaussian noise std.')
 
@@ -62,11 +72,17 @@ tf.flags.DEFINE_integer(
 FLAGS = tf.flags.FLAGS
 
 
-def denoise(im, eps):
+def denoise(im):                                                            
+    im_size = im.shape[:2]                                                      
+    down_sampled = imresize(im, FLAGS.downsample)                                     
+    up_sampled = imresize(down_sampled, im_size)                                
+    return up_sampled                                                           
+
+def denoise_obs(im, eps):
     """
     http://pyunlocbox.readthedocs.io/en/latest/tutorials/denoising.html
     """
-    f1 = functions.norm_tv(maxit=50, dim=3)
+    f1 = functions.norm_tv(maxit=50, dim=3, tol=1e-10)
     y = np.reshape(im, -1)
     f = functions.proj_b2(y=y, epsilon=eps)
     f2 = functions.func()
@@ -99,17 +115,18 @@ def load_images(input_dir, batch_shape, start = 0, end = None):
     idx = 0
     batch_size = batch_shape[0]
 
-    if start == 0 and end is None:
+    if FLAGS.using_docker:
         filepaths = tf.gfile.Glob(os.path.join(input_dir, '*.png'))
     else:
         filepaths = np.sort(tf.gfile.Glob(os.path.join(input_dir, '*.png')))
-        filepaths = filepaths[start:end]
-    print(len(filepaths))
+        if end is not None:
+            filepaths = filepaths[start:end]
     for filepath in filepaths:
         with tf.gfile.Open(filepath) as f:
-            image = imread(f, mode='RGB').astype(np.float) / 255.0
+            image = imread(f, mode='RGB').astype(np.float)
         # Images for inception classifier are normalized to be in [-1, 1] interval.
-        images[idx, :, :, :] = denoise(image * 2.0 - 1.0, eps = 16)
+        #images[idx, :, :, :] = denoise(image * 2.0 - 1.0, eps = 16 / 255.)
+        images[idx, :, :, :] = denoise(image) / 255. * 2.0 - 1.0
         filenames.append(os.path.basename(filepath))
         idx += 1
         if idx == batch_size:
@@ -125,11 +142,21 @@ def prepare_graph(batch_shape = DEFAULT_BATCH_SHAPE, num_classes = 1001,
         checkpoint_path = DEFAULT_CHECKPOINT_PATH):
     graph = tf.Graph()
     with graph.as_default():
+
+        if FLAGS.net_type == 'googlenet':
+            arg_scope = inception.inception_v3_arg_scope()
+            net = inception.inception_v3
+        elif FLAGS.net_type == 'resnet':
+            arg_scope = inception_resnet_v2.inception_resnet_v2_arg_scope()
+            net = inception_resnet_v2.inception_resnet_v2
+        else:
+            assert(False)
+
         # prepare graph
         images = tf.placeholder(tf.float32, shape=batch_shape, name='images')
-        with slim.arg_scope(inception.inception_v3_arg_scope()):
-            (logits, end_points) = inception.inception_v3(images, 
-                    num_classes=num_classes, is_training=False)
+        with slim.arg_scope(arg_scope):
+            (logits, end_points) = net(images, num_classes=num_classes, 
+                    is_training=False)
             
             config = tf.ConfigProto()
             # allocate memory based on need
@@ -138,8 +165,15 @@ def prepare_graph(batch_shape = DEFAULT_BATCH_SHAPE, num_classes = 1001,
 
             # restore checkpoint
             sess = tf.Session(config=config, graph=graph)
-            saver = tf.train.Saver()
+            saver = tf.train.Saver(slim.get_model_variables())
             saver.restore(sess, checkpoint_path)
+
+            #session_creator = tf.train.ChiefSessionCreator(
+            #        scaffold=tf.train.Scaffold(saver=saver),
+            #        checkpoint_filename_with_path=checkpoint_path,
+            #        master=FLAGS.master)
+
+            #sess = tf.train.MonitoredSession(session_creator=session_creator)
 
     prediction = tf.argmax(logits, 1)
 
