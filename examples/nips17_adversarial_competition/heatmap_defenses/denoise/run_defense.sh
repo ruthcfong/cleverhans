@@ -13,11 +13,13 @@ INPUT_DIR=$1
 OUTPUT_FILE=$2
 CHECKPOINT_PATH=ens_adv_inception_resnet_v2.ckpt
 NET_TYPE=resnet
+DOWNSAMPLE=$3
 
 python defense.py \
   --input_dir="${INPUT_DIR}" \
   --output_file="${OUTPUT_FILE}" \
   --checkpoint_path="${CHECKPOINT_PATH}" \
   --net_type="${NET_TYPE}" \
+  --downsample="${DOWNSAMPLE}" \
   --using_docker
 

@@ -44,6 +44,7 @@ python "${SCRIPT_DIR}/run_attacks_and_defenses.py" \
   --dataset_metadata="${WORKING_DIR}/dataset.csv" \
   --output_dir="${WORKING_DIR}/output_dir" \
   --epsilon="${MAX_EPSILON}" \
-  --save_all_classification
+  --save_all_classification \
+  --gpu
 
 echo "Output is saved in directory '${WORKING_DIR}/output_dir'"

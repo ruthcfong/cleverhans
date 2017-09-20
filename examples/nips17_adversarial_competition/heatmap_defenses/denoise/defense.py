@@ -11,7 +11,7 @@ import os, time
 import numpy as np
 from scipy.misc import imread, imresize
 
-from pyunlocbox import functions, solvers # TODO: NEED TO BE ADDED TO DOCKER
+#from pyunlocbox import functions, solvers # TODO: NEED TO BE ADDED TO DOCKER
 
 import tensorflow as tf
 from tensorflow.contrib.slim.nets import inception #, vgg 
@@ -35,7 +35,6 @@ tf.flags.DEFINE_string(
 
 tf.flags.DEFINE_string(
     'input_dir', '', 'Input directory with images.')
-
 tf.flags.DEFINE_string(
     'output_file', '', 'Output file to save labels.')
 
@@ -78,23 +77,23 @@ def denoise(im):
     up_sampled = imresize(down_sampled, im_size)                                
     return up_sampled                                                           
 
-def denoise_obs(im, eps):
-    """
-    http://pyunlocbox.readthedocs.io/en/latest/tutorials/denoising.html
-    """
-    f1 = functions.norm_tv(maxit=50, dim=3, tol=1e-10)
-    y = np.reshape(im, -1)
-    f = functions.proj_b2(y=y, epsilon=eps)
-    f2 = functions.func()
-    f2._eval = lambda x: 0
-    def prox(x, step):
-        return np.reshape(f.prox(np.reshape(x, -1), 0), im.shape)
-    f2._prox = prox
-
-    solver = solvers.douglas_rachford(step=0.1)
-    im0 = np.array(im)
-    ret = solvers.solve([f1, f2], im0, solver)
-    return ret['sol']
+#def denoise_obs(im, eps):
+#    """
+#    http://pyunlocbox.readthedocs.io/en/latest/tutorials/denoising.html
+#    """
+#    f1 = functions.norm_tv(maxit=50, dim=3, tol=1e-10)
+#    y = np.reshape(im, -1)
+#    f = functions.proj_b2(y=y, epsilon=eps)
+#    f2 = functions.func()
+#    f2._eval = lambda x: 0
+#    def prox(x, step):
+#        return np.reshape(f.prox(np.reshape(x, -1), 0), im.shape)
+#    f2._prox = prox
+#
+#    solver = solvers.douglas_rachford(step=0.1)
+#    im0 = np.array(im)
+#    ret = solvers.solve([f1, f2], im0, solver)
+#    return ret['sol']
 
 
 def load_images(input_dir, batch_shape, start = 0, end = None):
