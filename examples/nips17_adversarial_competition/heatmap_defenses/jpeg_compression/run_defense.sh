@@ -11,20 +11,22 @@
 
 INPUT_DIR=$1
 OUTPUT_FILE=$2
-#CHECKPOINT_PATH="ens_adv_inception_resnet_v2.ckpt"
-#NET_TYPE="resnet"
-DOWNSAMPLE=$3
-INTERP=$4
+COMPRESSION_RATE=$3
+DOWNSAMPLE_RATE=$4
 CHECKPOINT_PATH=$5
 NET_TYPE=$6
+#DOWNSAMPLE_RATE=$4
+#CHECKPOINT_PATH="inception_v3.ckpt"
+#NET_TYPE="googlenet"
 
 python defense.py \
   --input_dir="${INPUT_DIR}" \
   --output_file="${OUTPUT_FILE}" \
+  --compression_rate="${COMPRESSION_RATE}" \
   --checkpoint_path="${CHECKPOINT_PATH}" \
   --net_type="${NET_TYPE}" \
-  --downsample="${DOWNSAMPLE}" \
-  --interp="${INTERP}" \
-  --gpu=0
+  --gpu=0 \
+  --downsample_rate="${DOWNSAMPLE_RATE}" \
+  --downsample
   #--using_docker
 

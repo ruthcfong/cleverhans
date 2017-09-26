@@ -6,10 +6,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import os, time
+import os, time, tempfile
 
 import numpy as np
 from scipy.misc import imread, imresize
+
+from PIL import Image
 
 #from pyunlocbox import functions, solvers # TODO: NEED TO BE ADDED TO DOCKER
 
@@ -60,8 +62,14 @@ tf.flags.DEFINE_string(
 tf.flags.DEFINE_string(
     'net_type', 'googlenet', 'Choose from ["googlenet", "resnet"]')
 
+tf.flags.DEFINE_integer(
+    'compression_rate', 50, 'Choose JPEG compression quality')
+
+tf.flags.DEFINE_boolean(
+    'downsample', False, 'Downsample compressed image.')
+
 tf.flags.DEFINE_float(
-    'downsample', 0.5, 'Choose downsampling factor')
+    'downsample_rate', 0.5, 'Choose downsampling factor')
 
 #tf.flags.DEFINE_float(
 #    'noise_std', DEFAULT_NOISE_STD, 'Additive Gaussian noise std.')
@@ -75,29 +83,19 @@ tf.flags.DEFINE_integer(
 FLAGS = tf.flags.FLAGS
 
 
-def denoise(im):                                                            
+def denoise(im, downsample_rate=0.5, interp='bilinear'):                                                                
     im_size = im.shape[:2]                                                      
-    down_sampled = imresize(im, FLAGS.downsample)                                     
-    up_sampled = imresize(down_sampled, im_size, interp=FLAGS.interp)                                
+    down_sampled = imresize(im, downsample_rate) 
+    up_sampled = imresize(down_sampled, im_size, interp=interp)           
     return up_sampled                                                           
 
-#def denoise_obs(im, eps):
-#    """
-#    http://pyunlocbox.readthedocs.io/en/latest/tutorials/denoising.html
-#    """
-#    f1 = functions.norm_tv(maxit=50, dim=3, tol=1e-10)
-#    y = np.reshape(im, -1)
-#    f = functions.proj_b2(y=y, epsilon=eps)
-#    f2 = functions.func()
-#    f2._eval = lambda x: 0
-#    def prox(x, step):
-#        return np.reshape(f.prox(np.reshape(x, -1), 0), im.shape)
-#    f2._prox = prox
-#
-#    solver = solvers.douglas_rachford(step=0.1)
-#    im0 = np.array(im)
-#    ret = solvers.solve([f1, f2], im0, solver)
-#    return ret['sol']
+
+def compress_img(img_path, img_quality=50):
+    img = Image.open(img_path)
+    temp_f = tempfile.TemporaryFile()
+    img.save(temp_f, "JPEG", quality=img_quality)
+    img_ = imread(temp_f, mode='RGB')
+    return img_
 
 
 def load_images(input_dir, batch_shape, start = 0, end = None):
@@ -126,10 +124,12 @@ def load_images(input_dir, batch_shape, start = 0, end = None):
             filepaths = filepaths[start:end]
     for filepath in filepaths:
         with tf.gfile.Open(filepath) as f:
-            image = imread(f, mode='RGB').astype(np.float)
+            image = compress_img(f, img_quality=FLAGS.compression_rate).astype(np.float)
+        if FLAGS.downsample:
+            image = denoise(image, downsample_rate=FLAGS.downsample_rate, 
+                    interp=FLAGS.interp)
         # Images for inception classifier are normalized to be in [-1, 1] interval.
-        #images[idx, :, :, :] = denoise(image * 2.0 - 1.0, eps = 16 / 255.)
-        images[idx, :, :, :] = denoise(image) / 255. * 2.0 - 1.0
+        images[idx, :, :, :] = image / 255. * 2.0 - 1.0
         filenames.append(os.path.basename(filepath))
         idx += 1
         if idx == batch_size:
@@ -204,7 +204,7 @@ def main(_):
                 os.environ['CUDA_VISIBLE_DEVICES'] = '%d' % gpu
         else:
             os.environ['CUDA_VISIBLE_DEVICES'] = ''
-    
+   
     (graph, sess, tensors_dict, _) = prepare_graph(batch_shape = batch_shape, 
             num_classes = num_classes,
             checkpoint_path = FLAGS.checkpoint_path)
